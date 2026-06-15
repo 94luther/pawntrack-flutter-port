@@ -1,6 +1,9 @@
 {
-  "port": 8810,
+  "port": 8804,
   "googleSheetId": "YOUR_NEW_ONE_SHEET_ID",
   "googleServiceAccountFile": "C:/Users/94lut/Downloads/zippy-purpose-426703-q9-3048e05f6a58.json",
-  "databaseUrl": "postgres://postgres:postgres@localhost:5432/pawntrack"
+  "firebaseProjectId": "YOUR_FIREBASE_PROJECT_ID",
+  "firebaseServiceAccountFile": "C:/Users/94lut/Downloads/zippy-purpose-426703-q9-3048e05f6a58.json",
+  "firebaseStorageBucket": "YOUR_FIREBASE_PROJECT_ID.firebasestorage.app",
+  "firestoreDatabaseId": "(default)"
 }

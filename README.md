@@ -5,8 +5,8 @@ This is a new Flutter web/mobile port of PawnTrack. It was created in its own fo
 ## Structure
 
 - `app/` - Flutter app
-- `server/` - Google Sheets bridge with PostgreSQL mirror support
-- `database/` - PostgreSQL schema
+- `server/` - Firestore-primary backend with Google Sheets sync
+- `database/` - Firestore collection notes
 - `docs/` - setup notes
 
 Start with `docs/SETUP.md`.

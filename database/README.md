@@ -1,11 +1,22 @@
-# PawnTrack PostgreSQL Mirror
+# PawnTrack Firestore Collections
 
-This schema mirrors the live Google Sheet so the Flutter app can behave like a real app instead of relying only on browser-local state.
+Firestore is the primary database for the Flutter app. Google Sheets is kept as a synced secondary business record.
 
-## Local setup
+## Collections
 
-1. Create a PostgreSQL database named `pawntrack`.
-2. Run `schema.sql`.
-3. Put your connection string in `server/googleSheets.config.json` as `databaseUrl`.
+- `customers`
+- `loans`
+- `items`
+- `repayments`
+- `inventory`
+- `sales`
+- `riskScores`
+- `staffUsers`
+- `auditLog`
+- `whatsappMessages`
+- `voiceCommands`
+- `syncJobs`
+- `sheetSnapshots`
+- `storageUploads`
 
-The backend still updates Google Sheets. PostgreSQL stores snapshots, inventory sales, and sync jobs so failed writes can be seen and retried later.
+Seed Firestore by calling `POST /api/import/sheets-to-firestore` once after backend startup.
