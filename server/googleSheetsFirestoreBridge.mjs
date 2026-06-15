@@ -83,7 +83,11 @@ function cleanForJson(value) {
 }
 
 function cleanForFirestore(value) {
-  if (Array.isArray(value)) return value.map(cleanForFirestore).filter(v => v !== undefined);
+  if (Array.isArray(value)) {
+    return value
+      .map(v => Array.isArray(v) ? { values: cleanForFirestore(v) } : cleanForFirestore(v))
+      .filter(v => v !== undefined);
+  }
   if (value && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined).map(([k, v]) => [k, cleanForFirestore(v)]));
   }
@@ -146,6 +150,9 @@ async function fetchGoogleSheetData() {
 
 async function getFirestoreSheetData() {
   const snapshot = await db.collection("sheetSnapshots").doc("latest").get();
+  if (snapshot.exists && snapshot.data()?.payloadJson) {
+    return JSON.parse(snapshot.data().payloadJson);
+  }
   if (snapshot.exists && snapshot.data()?.payload) {
     return snapshot.data().payload;
   }
@@ -170,7 +177,7 @@ async function saveCanonicalData(data, metadata = {}) {
   await db.collection("sheetSnapshots").doc("latest").set(cleanForFirestore({
     source: payload.source,
     syncedAt: payload.syncedAt,
-    payload,
+    payloadJson: JSON.stringify(payload),
     metadata,
     updatedAt: FieldValue.serverTimestamp()
   }), { merge: true });

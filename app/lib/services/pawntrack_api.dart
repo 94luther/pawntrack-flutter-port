@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/pawntrack_models.dart';
 
 class PawnTrackApi {
-  PawnTrackApi({this.baseUrl = 'http://127.0.0.1:8804'});
+  PawnTrackApi({this.baseUrl = 'http://127.0.0.1:8805'});
 
   final String baseUrl;
 
