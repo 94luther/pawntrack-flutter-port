@@ -1,0 +1,12 @@
+{
+  "name": "PawnTrack",
+  "short_name": "PawnTrack",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f7f9fc",
+  "theme_color": "#2563eb",
+  "description": "PawnTrack Flutter dashboard",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": []
+}
