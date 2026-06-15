@@ -371,7 +371,7 @@ class _ProfitAreaChart extends StatelessWidget {
               isCurved: true,
               color: Colors.indigo,
               barWidth: 3,
-              belowBarData: BarAreaData(show: true, color: Colors.indigo.withOpacity(.18)),
+              belowBarData: BarAreaData(show: true, color: Colors.indigo.withValues(alpha: .18)),
               dotData: const FlDotData(show: false),
             ),
           ],

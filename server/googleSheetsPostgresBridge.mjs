@@ -93,7 +93,7 @@ async function sheetsFetch(path, options = {}) {
 }
 
 async function getSheetData() {
-  const ranges = ["'Company Owned Items'!A1:AE1000", "'OS Debts'!A1:X999", "'Active Pawns'!A1:AA991", "'Damaged goods'!A1:Z1000"];
+  const ranges = ["'Company Owned Items'!A1:AE1000", "'OS Debts'!A1:AG999", "'Active Pawns'!A1:AG991", "'Damaged goods'!A1:Z1000"];
   const params = new URLSearchParams();
   ranges.forEach(range => params.append("ranges", range));
   const data = await sheetsFetch(`/values:batchGet?${params}`);

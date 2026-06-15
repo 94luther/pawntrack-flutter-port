@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/pawntrack_models.dart';
 import '../services/pawntrack_api.dart';
-import 'analytics_screens.dart';
-import 'inventory_screen.dart';
-import 'loans_screen.dart';
+import 'operating_screens.dart';
 
 class PawnTrackApp extends StatefulWidget {
   const PawnTrackApp({super.key});
@@ -24,6 +22,32 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
   PawnTrackModel? model;
   String? selectedLoanId;
   String? selectedInventoryId;
+
+  static const navLabels = [
+    'Home',
+    'New Pawn',
+    'Active Pawns',
+    'Repayments',
+    'Overdue',
+    'Customers / Risk',
+    'Inventory',
+    'Sales',
+    'Reports',
+    'Sync',
+  ];
+
+  static const navIcons = [
+    Icons.home_outlined,
+    Icons.add_business_outlined,
+    Icons.inventory_2_outlined,
+    Icons.payments_outlined,
+    Icons.warning_amber_outlined,
+    Icons.badge_outlined,
+    Icons.storefront_outlined,
+    Icons.sell_outlined,
+    Icons.summarize_outlined,
+    Icons.sync_outlined,
+  ];
 
   @override
   void initState() {
@@ -65,6 +89,9 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
     if (dueDate.isNotEmpty) {
       final dueColumn = loan.sheetName == 'OS Debts' ? 'G' : 'H';
       updates.add({'range': "'${loan.sheetName}'!$dueColumn${loan.rowNumber}", 'values': [[dueDate]]});
+      if (loan.sheetName == 'Active Pawns') {
+        updates.add({'range': "'${loan.sheetName}'!Y${loan.rowNumber}", 'values': [[loan.extensionCount + 1]]});
+      }
     }
     if (updates.isEmpty) {
       setState(() => writeStatus = 'Enter repayment, due date, or both.');
@@ -82,6 +109,124 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
       }
     });
     setState(() => writeStatus = 'Updated ${loan.client}.');
+    await refresh();
+  }
+
+  Future<void> createNewPawn(NewPawnDraft draft) async {
+    if (model == null) return;
+    if (draft.customerName.isEmpty || draft.item.isEmpty || draft.loanAmount <= 0 || draft.dueDate.isEmpty) {
+      setState(() => writeStatus = 'Enter customer, item, loan amount, and due date.');
+      return;
+    }
+    final rowNumber = model!.source.activePawns.length + 1;
+    const headers = [
+      'Client Name',
+      'Client Number',
+      'Item Pawned',
+      'Loan Amount',
+      'Interest Amount',
+      'Total Payback',
+      'Date Given',
+      'Due Date',
+      'Days Overdue',
+      'Amount Paid',
+      'Remaining Balance',
+      'Location',
+      'Customer ID Number / Omang',
+      'Customer Photo',
+      'ID Photo',
+      'Phone Number',
+      'Emergency Contact',
+      'Address / Area',
+      'Item Serial / IMEI',
+      'Proof Of Ownership',
+      'Item Photos',
+      'Testing Checklist',
+      'Storage Location',
+      'Staff Member',
+      'Extension Count',
+      'Days Overdue Calculated',
+      'Forfeiture Date',
+      'Sale Date',
+      'Actual Profit',
+      'Borrower Risk Score',
+      'Correction Reason',
+      'Voice Command',
+      'Audit Status',
+    ];
+    final row = [
+      draft.customerName,
+      draft.phone,
+      draft.item,
+      draft.loanAmount,
+      draft.interestAmount,
+      draft.totalPayback,
+      draft.dateGiven,
+      draft.dueDate,
+      0,
+      0,
+      draft.totalPayback,
+      draft.storageLocation,
+      draft.customerIdNumber,
+      '',
+      '',
+      draft.phone,
+      draft.emergencyContact,
+      draft.addressArea,
+      draft.itemSerial,
+      draft.proofOfOwnership,
+      '',
+      draft.testingChecklist,
+      draft.storageLocation,
+      draft.staffMember,
+      0,
+      0,
+      '',
+      '',
+      '',
+      draft.riskScore,
+      '',
+      'Create a new pawn for ${draft.customerName}',
+      'created_in_flutter',
+    ];
+    await api.batchUpdate([
+      {'range': "'Active Pawns'!A1:AG1", 'values': [headers]},
+      {'range': "'Active Pawns'!A$rowNumber:AG$rowNumber", 'values': [row]},
+    ], metadata: {
+      'type': 'new_pawn',
+      'customerName': draft.customerName,
+      'itemPawned': draft.item,
+      'loanAmount': draft.loanAmount,
+      'riskScore': draft.riskScore,
+    });
+    setState(() => writeStatus = 'Created pawn for ${draft.customerName}.');
+    await refresh();
+  }
+
+  Future<void> forfeitLoanToInventory(LoanRecord loan) async {
+    if (model == null) return;
+    final inventoryRow = model!.source.companyOwnedItems.length + 1;
+    final todayValue = dateInputValue(today);
+    final listAmount = loan.remaining > 0 ? loan.remaining : loan.total;
+    await api.batchUpdate([
+      {
+        'range': "'Company Owned Items'!A1:N1",
+        'values': [
+          ['Category', 'Product', 'Damages', 'Listed on Market place', 'List Date', 'List amount', 'Amount paid', 'Sell amount', 'Profit/loss', 'Location', 'Sale Date', 'Date Given', 'Expected Repayment', 'Days Held']
+        ]
+      },
+      {
+        'range': "'Company Owned Items'!A$inventoryRow:N$inventoryRow",
+        'values': [
+          ['FORFEITED', loan.item, '', 'Listed', todayValue, listAmount, loan.loan, '', '', loan.location, '', dateInputValue(loan.dateGiven), loan.total, loan.dateGiven == null ? '' : daysBetween(today, loan.dateGiven!)]
+        ]
+      },
+      if (loan.sheetName == 'Active Pawns') {'range': "'Active Pawns'!AA${loan.rowNumber}", 'values': [[todayValue]]},
+    ], metadata: {
+      'type': 'forfeiture',
+      'loan': {'sheetName': loan.sheetName, 'rowNumber': loan.rowNumber, 'clientName': loan.client, 'itemPawned': loan.item}
+    });
+    setState(() => writeStatus = 'Moved ${loan.item} into inventory.');
     await refresh();
   }
 
@@ -127,7 +272,7 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PawnTrack Flutter',
+      title: 'Last Resort Pawnshop',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -138,29 +283,19 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
         builder: (context, constraints) {
           final loaded = model;
           final pages = loaded == null
-              ? List<Widget>.filled(9, const Center(child: CircularProgressIndicator()))
+              ? List<Widget>.filled(navLabels.length, const Center(child: CircularProgressIndicator()))
               : [
-                  GrowthScreen(model: loaded),
-                  CollectionsScreen(model: loaded),
-                  CashScreen(model: loaded),
-                  ProfitScreen(model: loaded),
-                  InventoryScreen(model: loaded, selectedInventoryId: selectedInventoryId, onSelectInventory: (id) => setState(() => selectedInventoryId = id), onMarkSold: markSold, writeStatus: writeStatus),
-                  LoansScreen(title: 'Active Pawns', loans: loaded.active, selectedLoanId: selectedLoanId, onSelectLoan: (id) => setState(() => selectedLoanId = id), onSave: saveLoanUpdate, writeStatus: writeStatus),
-                  LoansScreen(title: 'Loans', loans: loaded.loans, selectedLoanId: selectedLoanId, onSelectLoan: (id) => setState(() => selectedLoanId = id), onSave: saveLoanUpdate, writeStatus: writeStatus),
-                  LiveScreen(model: loaded, status: status, writeStatus: writeStatus, onRefresh: refresh),
-                  AiScreen(model: loaded),
+                  HomeCommandCentreScreen(model: loaded, onOpen: (index) => setState(() => selectedIndex = index), onRunCommand: (_) {}),
+                  NewPawnScreen(model: loaded, onCreate: createNewPawn, writeStatus: writeStatus),
+                  ActivePawnsOpsScreen(model: loaded, onForfeit: forfeitLoanToInventory, onOpenRepayments: () => setState(() => selectedIndex = 3)),
+                  RepaymentsScreen(model: loaded, selectedLoanId: selectedLoanId, onSelectLoan: (id) => setState(() => selectedLoanId = id), onSave: saveLoanUpdate, writeStatus: writeStatus),
+                  OverdueCollectionsScreen(model: loaded, onOpenRepayments: () => setState(() => selectedIndex = 3), onForfeit: forfeitLoanToInventory),
+                  BorrowerRiskScreen(model: loaded),
+                  InventoryOpsScreen(model: loaded),
+                  SalesScreen(model: loaded, selectedInventoryId: selectedInventoryId, onSelectInventory: (id) => setState(() => selectedInventoryId = id), onMarkSold: markSold, writeStatus: writeStatus),
+                  ReportsScreen(model: loaded),
+                  SyncSettingsScreen(model: loaded, status: status, writeStatus: writeStatus, onRefresh: refresh),
                 ];
-          const destinations = [
-            NavigationDestination(icon: Icon(Icons.trending_up_outlined), selectedIcon: Icon(Icons.trending_up), label: 'Growth'),
-            NavigationDestination(icon: Icon(Icons.assignment_returned_outlined), selectedIcon: Icon(Icons.assignment_returned), label: 'Collections'),
-            NavigationDestination(icon: Icon(Icons.payments_outlined), selectedIcon: Icon(Icons.payments), label: 'Cash'),
-            NavigationDestination(icon: Icon(Icons.show_chart_outlined), selectedIcon: Icon(Icons.show_chart), label: 'Profit'),
-            NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell), label: 'Inventory'),
-            NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'Active Pawns'),
-            NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'Loans'),
-            NavigationDestination(icon: Icon(Icons.sync_outlined), selectedIcon: Icon(Icons.sync), label: 'Live'),
-            NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'AI'),
-          ];
           final content = Column(
             children: [
               _Header(status: status, onRefresh: refresh),
@@ -172,12 +307,7 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
             return Scaffold(
               body: Row(
                 children: [
-                  NavigationRail(
-                    selectedIndex: selectedIndex,
-                    onDestinationSelected: (index) => setState(() => selectedIndex = index),
-                    labelType: NavigationRailLabelType.all,
-                    destinations: destinations.map((d) => NavigationRailDestination(icon: d.icon, selectedIcon: d.selectedIcon, label: Text(d.label))).toList(),
-                  ),
+                  _SideNav(selectedIndex: selectedIndex, onSelected: (index) => setState(() => selectedIndex = index)),
                   const VerticalDivider(width: 1),
                   Expanded(child: content),
                 ],
@@ -199,8 +329,6 @@ class _MobileTabs extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
-  static const labels = ['Growth', 'Collections', 'Cash', 'Profit', 'Inventory', 'Active Pawns', 'Loans', 'Live', 'AI'];
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -208,12 +336,13 @@ class _MobileTabs extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         scrollDirection: Axis.horizontal,
-        itemCount: labels.length,
+        itemCount: _PawnTrackAppState.navLabels.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final selected = index == selectedIndex;
           return ChoiceChip(
-            label: Text(labels[index]),
+            avatar: Icon(_PawnTrackAppState.navIcons[index], size: 18, color: selected ? Theme.of(context).colorScheme.onPrimary : null),
+            label: Text(_PawnTrackAppState.navLabels[index]),
             selected: selected,
             onSelected: (_) => onSelected(index),
             showCheckmark: false,
@@ -221,6 +350,39 @@ class _MobileTabs extends StatelessWidget {
             selectedColor: Theme.of(context).colorScheme.primary,
           );
         },
+      ),
+    );
+  }
+}
+
+class _SideNav extends StatelessWidget {
+  const _SideNav({required this.selectedIndex, required this.onSelected});
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 230,
+      color: Colors.white,
+      child: SafeArea(
+        child: ListView.separated(
+          padding: const EdgeInsets.all(12),
+          itemCount: _PawnTrackAppState.navLabels.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 4),
+          itemBuilder: (context, index) {
+            final selected = index == selectedIndex;
+            return ListTile(
+              selected: selected,
+              selectedTileColor: Theme.of(context).colorScheme.primary.withValues(alpha: .1),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              leading: Icon(_PawnTrackAppState.navIcons[index], color: selected ? Theme.of(context).colorScheme.primary : null),
+              title: Text(_PawnTrackAppState.navLabels[index], style: const TextStyle(fontWeight: FontWeight.w800)),
+              onTap: () => onSelected(index),
+            );
+          },
+        ),
       ),
     );
   }
@@ -244,7 +406,7 @@ class _Header extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('PawnTrack', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
+                  Text('Last Resort Pawnshop', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
                   Text(status, style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),

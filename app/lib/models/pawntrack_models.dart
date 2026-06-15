@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-final today = DateTime(2026, 6, 12);
+final today = DateTime.now();
 final moneyFormat = NumberFormat.currency(locale: 'en_BW', symbol: 'BWP ', decimalDigits: 0);
 
 double parseNumber(dynamic value) {
@@ -109,6 +109,17 @@ class LoanRecord {
     this.dueDate,
     this.dateGiven,
     this.location = '',
+    this.phone = '',
+    this.customerIdNumber = '',
+    this.emergencyContact = '',
+    this.addressArea = '',
+    this.itemSerial = '',
+    this.proofOfOwnership = '',
+    this.testingChecklist = '',
+    this.staffMember = '',
+    this.extensionCount = 0,
+    this.forfeitureDate,
+    this.correctionReason = '',
   });
 
   final String id;
@@ -118,6 +129,17 @@ class LoanRecord {
   final String client;
   final String item;
   final String location;
+  final String phone;
+  final String customerIdNumber;
+  final String emergencyContact;
+  final String addressArea;
+  final String itemSerial;
+  final String proofOfOwnership;
+  final String testingChecklist;
+  final String staffMember;
+  final int extensionCount;
+  final DateTime? forfeitureDate;
+  final String correctionReason;
   final double loan;
   final double interest;
   final double total;
@@ -226,6 +248,9 @@ class PawnTrackModel {
   List<LoanRecord> get active => loans.where((loan) => loan.sheetName == 'Active Pawns').toList();
   List<LoanRecord> get os => loans.where((loan) => loan.sheetName == 'OS Debts').toList();
   List<LoanRecord> get overdue => loans.where((loan) => loan.overdueDays > 0 && loan.remaining > 0).toList();
+  List<LoanRecord> get dueTodayLoans => loans.where((loan) => loan.dueDate != null && daysBetween(loan.dueDate!, today) == 0 && loan.remaining > 0).toList();
+  List<LoanRecord> get highRiskBorrowers => loans.where((loan) => loan.remaining > 0 && loan.riskScore >= 70).toList()
+    ..sort((a, b) => b.riskScore.compareTo(a.riskScore));
   List<InventoryRecord> get availableInventory => inventory.where((item) => !item.isSold).toList();
   List<InventoryRecord> get soldInventory => inventory.where((item) => item.isSold).toList();
 
@@ -451,5 +476,16 @@ LoanRecord _mapLoan(Map<String, dynamic> row, int index, String type, String she
     dueDate: dueDate,
     dateGiven: parseDate(row['Date Given']),
     location: '${row['Location'] ?? ''}'.trim(),
+    phone: '${row['Client Number'] ?? row['Phone Number'] ?? ''}'.trim(),
+    customerIdNumber: '${row['Customer ID Number / Omang'] ?? row['Omang'] ?? ''}'.trim(),
+    emergencyContact: '${row['Emergency Contact'] ?? ''}'.trim(),
+    addressArea: '${row['Address / Area'] ?? row['Address'] ?? ''}'.trim(),
+    itemSerial: '${row['Item Serial / IMEI'] ?? row['Serial Number'] ?? row['IMEI'] ?? ''}'.trim(),
+    proofOfOwnership: '${row['Proof Of Ownership'] ?? ''}'.trim(),
+    testingChecklist: '${row['Testing Checklist'] ?? ''}'.trim(),
+    staffMember: '${row['Staff Member'] ?? ''}'.trim(),
+    extensionCount: parseNumber(row['Extension Count']).round(),
+    forfeitureDate: parseDate(row['Forfeiture Date']),
+    correctionReason: '${row['Correction Reason'] ?? ''}'.trim(),
   );
 }
