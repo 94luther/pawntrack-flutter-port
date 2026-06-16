@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/pawntrack_models.dart';
 
@@ -16,10 +17,24 @@ class PawnTrackApi {
   final FirebaseFirestore firestore;
   final FirebaseStorage storage;
 
+  Uri get _apiBase {
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      final isLocal = host == '127.0.0.1' || host == 'localhost';
+      return Uri.parse(isLocal ? 'http://127.0.0.1:8805/api/' : '/api/');
+    }
+    return Uri.parse('http://127.0.0.1:8805/api/');
+  }
+
   DocumentReference<Map<String, dynamic>> get _latestSnapshot =>
       firestore.collection('sheetSnapshots').doc('latest');
 
   Future<SheetSource> sheetData() async {
+    final response = await _get('/sheet-data');
+    if (response != null) {
+      final data = Map<String, dynamic>.from(response['data'] as Map);
+      return SheetSource.fromJson(data);
+    }
     final snapshot = await _latestSnapshot.get();
     if (!snapshot.exists) {
       throw Exception('Firestore has no imported PawnTrack data yet.');
@@ -36,6 +51,12 @@ class PawnTrackApi {
 
   Future<void> batchUpdate(List<Map<String, dynamic>> updates,
       {Map<String, dynamic>? metadata}) async {
+    final response = await _post('/sheet-batch-update', {
+      'updates': updates,
+      'metadata': metadata ?? {},
+    });
+    if (response != null) return;
+
     final source = await sheetData();
     final payload = _sourceToPayload(source);
     for (final update in updates) {
@@ -48,6 +69,13 @@ class PawnTrackApi {
   Future<void> inventorySale(
       Map<String, dynamic> item, List<Map<String, dynamic>> updates,
       {Map<String, dynamic>? metadata}) async {
+    final response = await _post('/inventory-sale', {
+      'item': item,
+      'updates': updates,
+      'metadata': metadata ?? {},
+    });
+    if (response != null) return;
+
     await batchUpdate(updates, metadata: {
       'type': 'inventory_sale',
       'item': item,
@@ -127,6 +155,10 @@ class PawnTrackApi {
     String? customerId,
     String? itemId,
   }) async {
+    final upload = await _upload(kind,
+        bytes: bytes, fileName: fileName, customerId: customerId, itemId: itemId);
+    if (upload != null) return upload;
+
     final fileId = firestore.collection('_ids').doc().id;
     final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]+'), '-');
     final path = switch (kind) {
@@ -172,6 +204,55 @@ class PawnTrackApi {
       }, SetOptions(merge: true));
     }
     return result;
+  }
+
+  Uri _apiUri(String path) => _apiBase.resolve('./${path.replaceFirst('/', '')}');
+
+  Future<Map<String, dynamic>?> _get(String path) async {
+    try {
+      final response = await http.get(_apiUri(path));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _post(
+      String path, Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(_apiUri(path),
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode(body));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception(response.body);
+    } catch (error) {
+      if (!kIsWeb) rethrow;
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _upload(String kind,
+      {required Uint8List bytes,
+      required String fileName,
+      String? customerId,
+      String? itemId}) async {
+    try {
+      final request = http.MultipartRequest('POST', _apiUri('/upload/$kind'));
+      if (customerId != null) request.fields['customerId'] = customerId;
+      if (itemId != null) request.fields['itemId'] = itemId;
+      request.files.add(http.MultipartFile.fromBytes('file', bytes,
+          filename: fileName));
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return Map<String, dynamic>.from(body['upload'] as Map);
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _savePayload(Map<String, dynamic> payload,

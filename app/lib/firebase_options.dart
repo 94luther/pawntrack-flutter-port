@@ -58,7 +58,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '873569444236',
     projectId: 'lastresort-2b8b1',
     authDomain: 'lastresort-2b8b1.firebaseapp.com',
-    storageBucket: 'lastresort-2b8b1.firebasestorage.app',
+    storageBucket: 'lastresort-2b8b1-pawntrack-storage',
     measurementId: 'G-2QY1N0SXQ5',
   );
 }
