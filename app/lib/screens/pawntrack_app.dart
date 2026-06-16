@@ -79,6 +79,7 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
   static const navLabels = [
     'Home',
     'New Pawn',
+    'New Loan',
     'Active Pawns',
     'Repayments',
     'Overdue',
@@ -92,6 +93,7 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
   static const navIcons = [
     Icons.home_outlined,
     Icons.add_business_outlined,
+    Icons.add_card_outlined,
     Icons.inventory_2_outlined,
     Icons.payments_outlined,
     Icons.warning_amber_outlined,
@@ -172,17 +174,18 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
       setState(() => writeStatus = 'Enter repayment, due date, or both.');
       return;
     }
-    await api.batchUpdate(updates, metadata: withActor({
-      'type': 'loan_update',
-      'loan': {
-        'sheetName': loan.sheetName,
-        'rowNumber': loan.rowNumber,
-        'clientName': loan.client,
-        'itemPawned': loan.item,
-        'paymentAmount': amount,
-        'dueDate': dueDate,
-      }
-    }));
+    await api.batchUpdate(updates,
+        metadata: withActor({
+          'type': 'loan_update',
+          'loan': {
+            'sheetName': loan.sheetName,
+            'rowNumber': loan.rowNumber,
+            'clientName': loan.client,
+            'itemPawned': loan.item,
+            'paymentAmount': amount,
+            'dueDate': dueDate,
+          }
+        }));
     setState(() => writeStatus = 'Updated ${loan.client}.');
     await refresh();
   }
@@ -242,13 +245,14 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
         'range': "'Active Pawns'!A$rowNumber:AG$rowNumber",
         'values': [row]
       },
-    ], metadata: withActor({
-      'type': 'new_pawn',
-      'customerName': draft.customerName,
-      'itemPawned': draft.item,
-      'loanAmount': draft.loanAmount,
-      'riskScore': draft.riskScore,
-    }));
+    ],
+        metadata: withActor({
+          'type': 'new_pawn',
+          'customerName': draft.customerName,
+          'itemPawned': draft.item,
+          'loanAmount': draft.loanAmount,
+          'riskScore': draft.riskScore,
+        }));
     setState(() => writeStatus = 'Created pawn for ${draft.customerName}.');
     await refresh();
   }
@@ -307,19 +311,20 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
         'range': "'Active Pawns'!A$rowNumber:AG$rowNumber",
         'values': [row]
       },
-    ], metadata: withActor({
-      'type': 'new_loan',
-      'sourceLoan': {
-        'sheetName': pawn.sheetName,
-        'rowNumber': pawn.rowNumber,
-        'clientName': pawn.client,
-        'itemPawned': pawn.item,
-      },
-      'customerName': pawn.client,
-      'itemPawned': pawn.item,
-      'loanAmount': draft.loanAmount,
-      'riskScore': draft.riskScore,
-    }));
+    ],
+        metadata: withActor({
+          'type': 'new_loan',
+          'sourceLoan': {
+            'sheetName': pawn.sheetName,
+            'rowNumber': pawn.rowNumber,
+            'clientName': pawn.client,
+            'itemPawned': pawn.item,
+          },
+          'customerName': pawn.client,
+          'itemPawned': pawn.item,
+          'loanAmount': draft.loanAmount,
+          'riskScore': draft.riskScore,
+        }));
     setState(() => writeStatus = 'Added new loan for ${pawn.client}.');
     await refresh();
   }
@@ -365,16 +370,17 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
           [draft.correctionReason]
         ]
       },
-    ], metadata: withActor({
-      'type': 'pawn_personal_update',
-      'loan': {
-        'sheetName': loan.sheetName,
-        'rowNumber': loan.rowNumber,
-        'clientName': loan.client,
-        'itemPawned': loan.item,
-      },
-      'correctionReason': draft.correctionReason,
-    }));
+    ],
+        metadata: withActor({
+          'type': 'pawn_personal_update',
+          'loan': {
+            'sheetName': loan.sheetName,
+            'rowNumber': loan.rowNumber,
+            'clientName': loan.client,
+            'itemPawned': loan.item,
+          },
+          'correctionReason': draft.correctionReason,
+        }));
     setState(() => writeStatus = 'Updated details for ${draft.customerName}.');
     await refresh();
   }
@@ -419,16 +425,17 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
           ]
         ]
       },
-    ], metadata: withActor({
-      'type': 'loan_detail_update',
-      'loan': {
-        'sheetName': loan.sheetName,
-        'rowNumber': loan.rowNumber,
-        'clientName': loan.client,
-        'itemPawned': loan.item,
-      },
-      'correctionReason': draft.correctionReason,
-    }));
+    ],
+        metadata: withActor({
+          'type': 'loan_detail_update',
+          'loan': {
+            'sheetName': loan.sheetName,
+            'rowNumber': loan.rowNumber,
+            'clientName': loan.client,
+            'itemPawned': loan.item,
+          },
+          'correctionReason': draft.correctionReason,
+        }));
     setState(() => writeStatus = 'Updated loan details for ${loan.client}.');
     await refresh();
   }
@@ -488,15 +495,16 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
             [todayValue]
           ]
         },
-    ], metadata: withActor({
-      'type': 'forfeiture',
-      'loan': {
-        'sheetName': loan.sheetName,
-        'rowNumber': loan.rowNumber,
-        'clientName': loan.client,
-        'itemPawned': loan.item
-      }
-    }));
+    ],
+        metadata: withActor({
+          'type': 'forfeiture',
+          'loan': {
+            'sheetName': loan.sheetName,
+            'rowNumber': loan.rowNumber,
+            'clientName': loan.client,
+            'itemPawned': loan.item
+          }
+        }));
     setState(() => writeStatus = 'Moved ${loan.item} into inventory.');
     await refresh();
   }
@@ -594,10 +602,19 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
                     model: loaded,
                     onCreate: createNewPawn,
                     writeStatus: writeStatus),
+                NewLoanScreen(
+                    model: loaded,
+                    onCreate: createNewLoan,
+                    writeStatus: writeStatus),
                 ActivePawnsOpsScreen(
                     model: loaded,
                     onForfeit: forfeitLoanToInventory,
-                    onOpenRepayments: () => setState(() => selectedIndex = 3)),
+                    onOpenRepayments: (loan) => setState(() {
+                          selectedLoanId = loan.id;
+                          selectedIndex = 4;
+                        }),
+                    onSavePersonalDetails: savePawnPersonalDetails,
+                    onSaveLoanDetails: saveCurrentLoanDetails),
                 RepaymentsScreen(
                     model: loaded,
                     selectedLoanId: selectedLoanId,
@@ -606,7 +623,10 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
                     writeStatus: writeStatus),
                 OverdueCollectionsScreen(
                     model: loaded,
-                    onOpenRepayments: () => setState(() => selectedIndex = 3),
+                    onOpenRepayments: (loan) => setState(() {
+                          selectedLoanId = loan.id;
+                          selectedIndex = 4;
+                        }),
                     onForfeit: forfeitLoanToInventory),
                 BorrowerRiskScreen(model: loaded),
                 InventoryOpsScreen(model: loaded),

@@ -496,8 +496,8 @@ class _NewLoanScreenState extends State<NewLoanScreen> {
   int get riskScore {
     final pawn = selectedPawn;
     if (pawn == null) return 0;
-    return estimateNewLoanRisk(widget.model, pawn.client, parseNumber(loan.text),
-        pawn.customerIdNumber);
+    return estimateNewLoanRisk(widget.model, pawn.client,
+        parseNumber(loan.text), pawn.customerIdNumber);
   }
 
   @override
@@ -529,7 +529,8 @@ class _NewLoanScreenState extends State<NewLoanScreen> {
       children: [
         _Panel(
           title: 'Existing Pawn',
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             DropdownButtonFormField<String>(
               initialValue: pawn?.id,
               isExpanded: true,
@@ -560,8 +561,7 @@ class _NewLoanScreenState extends State<NewLoanScreen> {
                   value: pawn.customerIdNumber.ifEmpty('Missing')),
               _InfoRow(label: 'Item', value: pawn.item),
               _InfoRow(
-                  label: 'Storage',
-                  value: pawn.location.ifEmpty('Missing')),
+                  label: 'Storage', value: pawn.location.ifEmpty('Missing')),
             ],
           ]),
         ),
@@ -653,8 +653,8 @@ class ActivePawnsOpsScreen extends StatelessWidget {
   final PawnTrackModel model;
   final Future<void> Function(LoanRecord loan) onForfeit;
   final ValueChanged<LoanRecord> onOpenRepayments;
-  final Future<void> Function(
-      LoanRecord loan, PawnPersonalDetailsDraft draft) onSavePersonalDetails;
+  final Future<void> Function(LoanRecord loan, PawnPersonalDetailsDraft draft)
+      onSavePersonalDetails;
   final Future<void> Function(LoanRecord loan, LoanDetailsDraft draft)
       onSaveLoanDetails;
 
@@ -831,7 +831,7 @@ class OverdueCollectionsScreen extends StatelessWidget {
       required this.onForfeit});
 
   final PawnTrackModel model;
-  final VoidCallback onOpenRepayments;
+  final ValueChanged<LoanRecord> onOpenRepayments;
   final Future<void> Function(LoanRecord loan) onForfeit;
 
   @override
@@ -866,7 +866,7 @@ class OverdueCollectionsScreen extends StatelessWidget {
               children: overdue
                   .map((loan) => _CollectionTile(
                       loan: loan,
-                      onRepay: onOpenRepayments,
+                      onRepay: () => onOpenRepayments(loan),
                       onForfeit: () => onForfeit(loan)))
                   .toList()),
         ),
@@ -1745,8 +1745,7 @@ class _PawnDetailsDialogState extends State<_PawnDetailsDialog> {
               _Field(controller: storage, label: 'Storage location'),
               _Field(controller: staff, label: 'Staff member'),
               _Field(
-                  controller: personalCorrection,
-                  label: 'Correction reason'),
+                  controller: personalCorrection, label: 'Correction reason'),
             ]),
             const SizedBox(height: 20),
             Text('Current Loan Details',
