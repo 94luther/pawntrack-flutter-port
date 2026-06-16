@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/pawntrack_models.dart';
+import '../services/pawntrack_ai_service.dart';
 import '../widgets/stat_card.dart';
 
 class NewPawnDraft {
@@ -77,10 +78,9 @@ class HomeCommandCentreScreen extends StatelessWidget {
             _ActionButton(icon: Icons.event_repeat, label: 'Extend Loan', onTap: () => onOpen(3)),
             _ActionButton(icon: Icons.sell, label: 'Mark Item Sold', onTap: () => onOpen(7)),
             _ActionButton(icon: Icons.sms, label: 'Send Reminder', onTap: () => onOpen(4)),
-            _ActionButton(icon: Icons.mic, label: 'Voice Command', onTap: () => onOpen(0)),
+            _ActionButton(icon: Icons.record_voice_over, label: 'Voice Command', onTap: () => _showAiQuestionPanel(context)),
           ]),
         ),
-        _VoiceCommandPanel(model: model, onRunCommand: onRunCommand),
         _TwoColumn(
           left: _Panel(
             title: 'Due Today',
@@ -92,6 +92,28 @@ class HomeCommandCentreScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _showAiQuestionPanel(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.viewInsetsOf(sheetContext).bottom;
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 16),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: _VoiceCommandPanel(model: model, onRunCommand: onRunCommand),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -606,35 +628,70 @@ class _VoiceCommandPanel extends StatefulWidget {
 }
 
 class _VoiceCommandPanelState extends State<_VoiceCommandPanel> {
-  final command = TextEditingController();
-  String result = 'Try: "Show loans due today" or "What cash is expected this week?"';
+  final question = TextEditingController();
+  final ai = PawnTrackAiService();
+  String result = 'Ask Gemini about cash, overdue customers, risk, inventory, reminders, or profit.';
+  bool loading = false;
 
   @override
   void dispose() {
-    command.dispose();
+    question.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return _Panel(
-      title: 'AI / Voice Command',
+      title: 'Ask Gemini',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        TextField(controller: command, decoration: const InputDecoration(labelText: 'Command', border: OutlineInputBorder(), prefixIcon: Icon(Icons.mic))),
+        TextField(
+          controller: question,
+          minLines: 1,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Question about live pawnshop data',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.auto_awesome),
+          ),
+          onSubmitted: (_) => _askGemini(),
+        ),
         const SizedBox(height: 10),
         FilledButton.icon(
           icon: const Icon(Icons.auto_awesome),
-          label: const Text('Run Command'),
-          onPressed: () {
-            final text = command.text.trim();
-            widget.onRunCommand(text);
-            setState(() => result = runLocalCommand(widget.model, text));
-          },
+          label: Text(loading ? 'Asking Gemini...' : 'Ask Gemini'),
+          onPressed: loading ? null : _askGemini,
         ),
         const SizedBox(height: 10),
-        Text(result),
+        if (loading) const LinearProgressIndicator(),
+        if (loading) const SizedBox(height: 10),
+        SelectableText(result),
       ]),
     );
+  }
+
+  Future<void> _askGemini() async {
+    final text = question.text.trim();
+    widget.onRunCommand(text);
+    if (text.isEmpty) {
+      setState(() => result = 'Ask a question about the pawnshop data first.');
+      return;
+    }
+    setState(() {
+      loading = true;
+      result = 'Gemini is checking the live Firestore data...';
+    });
+    try {
+      final answer = await ai.answerQuestion(widget.model, text);
+      if (!mounted) return;
+      setState(() => result = answer);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        result = 'Gemini is not ready yet. Open Firebase Console > AI Services > AI Logic and finish setup with the Gemini Developer API, then try again.\n\n$error';
+      });
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 }
 
@@ -657,18 +714,6 @@ double suggestedOffer(double requestedAmount, int riskScore) {
   if (riskScore >= 75) return requestedAmount * .45;
   if (riskScore >= 55) return requestedAmount * .65;
   return requestedAmount * .8;
-}
-
-String runLocalCommand(PawnTrackModel model, String command) {
-  final text = command.toLowerCase();
-  if (text.contains('due today')) return 'Loans due today: ${model.dueTodayLoans.map((loan) => '${loan.client} ${moneyFormat.format(loan.remaining)}').join('; ').ifEmpty('none')}.';
-  if (text.contains('overdue')) return 'Overdue customers: ${model.overdue.map((loan) => '${loan.client} ${loan.overdueDays} days').join('; ').ifEmpty('none')}.';
-  if (text.contains('cash') && text.contains('week')) return 'Expected cash this week is ${moneyFormat.format(model.due7)}.';
-  if (text.contains('profit')) return 'Profit forecast is ${moneyFormat.format(model.expectedNetProfit)}. Real sold-item profit is ${moneyFormat.format(model.salesProfit)}.';
-  if (text.contains('high-risk') || text.contains('high risk')) return 'High-risk borrowers: ${model.highRiskBorrowers.map((loan) => '${loan.client} ${loan.riskScore}').join('; ').ifEmpty('none')}.';
-  if (text.contains('30 days')) return 'Inventory stuck over 30 days: ${model.availableInventory.where((item) => item.age == null || item.age! > 30).map((item) => item.product).join('; ').ifEmpty('none')}.';
-  if (text.contains('whatsapp')) return 'Reminder: Hi, this is Last Resort Pawnshop. Your pawn payment is overdue. Please contact us today to avoid forfeiture.';
-  return 'Command understood locally. Supported actions include creating pawns, due today, overdue customers, repayments, extensions, sales, cash this week, profit forecast, safe offer, reminders, high-risk borrowers, and stuck inventory.';
 }
 
 double _cashCollectedToday(PawnTrackModel model) {
