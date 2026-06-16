@@ -1,0 +1,13 @@
+{
+  "apphosting": {
+    "backendId": "pawntrack-app",
+    "rootDir": "apphosting",
+    "alwaysDeployFromSource": true,
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "*.log"
+    ]
+  }
+}
