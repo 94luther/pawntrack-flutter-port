@@ -1,14 +1,23 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/pawntrack_models.dart';
 
 class PawnTrackApi {
-  PawnTrackApi({this.baseUrl = 'http://127.0.0.1:8805'});
+  PawnTrackApi({String? baseUrl}) : baseUrl = baseUrl ?? _defaultBaseUrl();
 
   final String baseUrl;
+
+  static String _defaultBaseUrl() {
+    if (kIsWeb) {
+      final uri = Uri.base;
+      final isLocal = uri.host == '127.0.0.1' || uri.host == 'localhost' || uri.scheme == 'file';
+      if (!isLocal && uri.hasScheme && uri.host.isNotEmpty) return uri.origin;
+    }
+    return 'http://127.0.0.1:8805';
+  }
 
   Future<SheetSource> sheetData() async {
     final response = await http.get(Uri.parse('$baseUrl/api/sheet-data'));
