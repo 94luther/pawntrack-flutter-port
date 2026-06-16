@@ -8,17 +8,16 @@
     ],
     "rewrites": [
       {
-        "source": "/api/**",
-        "run": {
-          "serviceId": "pawntrack-api",
-          "region": "europe-west1"
-        }
-      },
-      {
         "source": "**",
         "destination": "/index.html"
       }
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   },
   "flutter": {
     "platforms": {
