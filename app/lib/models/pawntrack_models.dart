@@ -119,6 +119,8 @@ class LoanRecord {
     this.staffMember = '',
     this.extensionCount = 0,
     this.forfeitureDate,
+    this.saleDate,
+    this.actualProfit = 0,
     this.correctionReason = '',
   });
 
@@ -139,6 +141,8 @@ class LoanRecord {
   final String staffMember;
   final int extensionCount;
   final DateTime? forfeitureDate;
+  final DateTime? saleDate;
+  final double actualProfit;
   final String correctionReason;
   final double loan;
   final double interest;
@@ -486,6 +490,8 @@ LoanRecord _mapLoan(Map<String, dynamic> row, int index, String type, String she
     staffMember: '${row['Staff Member'] ?? ''}'.trim(),
     extensionCount: parseNumber(row['Extension Count']).round(),
     forfeitureDate: parseDate(row['Forfeiture Date']),
+    saleDate: parseDate(row['Sale Date']),
+    actualProfit: parseNumber(row['Actual Profit']),
     correctionReason: '${row['Correction Reason'] ?? ''}'.trim(),
   );
 }
