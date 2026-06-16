@@ -1,0 +1,31 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 3
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+env:
+  - variable: FIREBASE_PROJECT_ID
+    value: lastresort-2b8b1
+    availability:
+      - RUNTIME
+  - variable: FIREBASE_STORAGE_BUCKET
+    value: lastresort-2b8b1-pawntrack-storage
+    availability:
+      - RUNTIME
+  - variable: FIRESTORE_DATABASE_ID
+    value: "(default)"
+    availability:
+      - RUNTIME
+  - variable: GOOGLE_SHEET_ID
+    value: 1Ga4hP0Cbp51lGHcm60wNXl3ec5oUlkB_RJ-GNZKfE2o
+    availability:
+      - RUNTIME
+  - variable: GOOGLE_SERVICE_ACCOUNT_JSON
+    secret: pawntrack-service-account-json
+    availability:
+      - RUNTIME
+  - variable: FIREBASE_SERVICE_ACCOUNT_JSON
+    secret: pawntrack-service-account-json
+    availability:
+      - RUNTIME

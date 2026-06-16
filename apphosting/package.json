@@ -1,0 +1,16 @@
+{
+  "name": "pawntrack-apphosting",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "firebase-admin": "^13.5.0"
+  }
+}

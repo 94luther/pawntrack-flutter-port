@@ -533,7 +533,7 @@ async function handleUpload(req, kind) {
   return { kind, bucket: bucket.name, path, url, fileName: upload.fileName, mimeType: upload.mimeType };
 }
 
-createServer(async (req, res) => {
+export async function handleApiRequest(req, res) {
   if (req.method === "OPTIONS") return sendJson(res, 200, { ok: true });
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -577,7 +577,22 @@ createServer(async (req, res) => {
     })).catch(() => {});
     return sendJson(res, 500, { error: error.message });
   }
-}).listen(port, () => {
-  console.log(`PawnTrack Firestore bridge running on http://127.0.0.1:${port}`);
-  console.log(`Firestore project ${firebaseProjectId}, database ${firestoreDatabaseId}, bucket ${firebaseStorageBucket}`);
-});
+}
+
+export function startApiServer(listenPort = port) {
+  return createServer(handleApiRequest).listen(listenPort, () => {
+    console.log(`PawnTrack Firestore bridge running on http://127.0.0.1:${listenPort}`);
+    console.log(`Firestore project ${firebaseProjectId}, database ${firestoreDatabaseId}, bucket ${firebaseStorageBucket}`);
+  });
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  startApiServer(port);
+}
+
+export const runtimeConfig = {
+  firebaseProjectId,
+  firestoreDatabaseId,
+  firebaseStorageBucket,
+  googleSheets: Boolean(googleSheetId && (googleServiceAccountFile || googleServiceAccountJson))
+};
