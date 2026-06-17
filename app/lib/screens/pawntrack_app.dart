@@ -4,7 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/pawntrack_models.dart';
+import '../navigation/pawntrack_nav.dart';
 import '../services/pawntrack_api.dart';
+import 'analytics_screen.dart';
+import 'forecast_screen.dart';
 import 'operating_screens.dart';
 
 const activePawnHeaders = [
@@ -78,6 +81,8 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
 
   static const navLabels = [
     'Home',
+    'Forecast',
+    'Analytics',
     'New Pawn',
     'New Loan',
     'Active Pawns',
@@ -92,6 +97,8 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
 
   static const navIcons = [
     Icons.home_outlined,
+    Icons.auto_graph_outlined,
+    Icons.analytics_outlined,
     Icons.add_business_outlined,
     Icons.add_card_outlined,
     Icons.inventory_2_outlined,
@@ -615,6 +622,8 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
                     onOpen: (index) => setState(() => selectedIndex = index),
                     onSendReminder: sendWhatsAppReminder,
                     onRunCommand: (_) {}),
+                ForecastScreen(model: loaded),
+                AnalyticsScreen(model: loaded),
                 NewPawnScreen(
                     model: loaded,
                     onCreate: createNewPawn,
@@ -628,7 +637,7 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
                     onForfeit: forfeitLoanToInventory,
                     onOpenRepayments: (loan) => setState(() {
                           selectedLoanId = loan.id;
-                          selectedIndex = 4;
+                          selectedIndex = PawnTrackNavIndex.repayments;
                         }),
                     onSendReminder: sendWhatsAppReminder,
                     onSavePersonalDetails: savePawnPersonalDetails,
@@ -643,7 +652,7 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
                     model: loaded,
                     onOpenRepayments: (loan) => setState(() {
                           selectedLoanId = loan.id;
-                          selectedIndex = 4;
+                          selectedIndex = PawnTrackNavIndex.repayments;
                         }),
                     onSendReminder: sendWhatsAppReminder,
                     onForfeit: forfeitLoanToInventory),

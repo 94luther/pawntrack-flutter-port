@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/pawntrack_models.dart';
+import '../navigation/pawntrack_nav.dart';
 import '../services/pawntrack_ai_service.dart';
 import '../widgets/stat_card.dart';
 
@@ -203,23 +204,23 @@ class HomeCommandCentreScreen extends StatelessWidget {
             _ActionButton(
                 icon: Icons.add_business,
                 label: 'New Pawn',
-                onTap: () => onOpen(1)),
+                onTap: () => onOpen(PawnTrackNavIndex.newPawn)),
             _ActionButton(
                 icon: Icons.add_card,
                 label: 'New Loan',
-                onTap: () => onOpen(2)),
+                onTap: () => onOpen(PawnTrackNavIndex.newLoan)),
             _ActionButton(
                 icon: Icons.payments,
                 label: 'Take Repayment',
-                onTap: () => onOpen(4)),
+                onTap: () => onOpen(PawnTrackNavIndex.repayments)),
             _ActionButton(
                 icon: Icons.event_repeat,
                 label: 'Extend Loan',
-                onTap: () => onOpen(4)),
+                onTap: () => onOpen(PawnTrackNavIndex.repayments)),
             _ActionButton(
                 icon: Icons.sell,
                 label: 'Mark Item Sold',
-                onTap: () => onOpen(8)),
+                onTap: () => onOpen(PawnTrackNavIndex.sales)),
             _ActionButton(
                 icon: Icons.sms,
                 label: 'Send Reminder',
@@ -265,7 +266,7 @@ class HomeCommandCentreScreen extends StatelessWidget {
                   model: model,
                   onOpenOverdue: () {
                     Navigator.of(sheetContext).pop();
-                    onOpen(5);
+                    onOpen(PawnTrackNavIndex.overdue);
                   },
                   onSendReminder: onSendReminder),
             ),
