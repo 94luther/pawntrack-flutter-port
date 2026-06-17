@@ -103,6 +103,59 @@ class PawnTrackApi {
         SetOptions(merge: true));
   }
 
+  Future<WhatsAppReminderResult> createWhatsAppReminder({
+    required LoanRecord loan,
+    required String message,
+    required String reminderType,
+    Map<String, dynamic>? actor,
+  }) async {
+    final payload = {
+      'loanId': loan.id,
+      'sheetName': loan.sheetName,
+      'rowNumber': loan.rowNumber,
+      'customerName': loan.client,
+      'itemPawned': loan.item,
+      'phone': loan.phone,
+      'message': message,
+      'reminderType': reminderType,
+      'actor': actor ?? {},
+    };
+    final response = await _post('/whatsapp-reminder', payload);
+    if (response != null) {
+      return WhatsAppReminderResult.fromJson(response);
+    }
+
+    final normalizedPhone = normalizeWhatsAppPhone(loan.phone);
+    if (normalizedPhone == null) {
+      throw Exception('No usable WhatsApp phone number for ${loan.client}.');
+    }
+    final url = whatsAppUrl(normalizedPhone, message);
+    final messageRef = await firestore.collection('whatsappMessages').add(
+          _clean({
+            ...payload,
+            'normalizedPhone': normalizedPhone,
+            'status': 'opened_in_whatsapp',
+            'provider': 'wa_me_link',
+            'sendMode': 'link',
+            'whatsappUrl': url,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }),
+        );
+    await firestore.collection('auditLog').add(_clean({
+          'entityType': 'whatsapp_message',
+          'entityId': messageRef.id,
+          'action': 'whatsapp_reminder_opened',
+          'actor': actor ?? {},
+          'afterPayload': payload,
+          'createdAt': FieldValue.serverTimestamp(),
+        }));
+    return WhatsAppReminderResult(
+        messageId: messageRef.id,
+        whatsappUrl: Uri.parse(url),
+        status: 'opened_in_whatsapp');
+  }
+
   Future<Map<String, dynamic>> uploadCustomerPhoto({
     required String customerId,
     required Uint8List bytes,
@@ -603,6 +656,46 @@ class PawnTrackApi {
         .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
         .replaceAll(RegExp(r'^-|-$'), '');
   }
+}
+
+class WhatsAppReminderResult {
+  const WhatsAppReminderResult({
+    required this.messageId,
+    required this.whatsappUrl,
+    required this.status,
+  });
+
+  final String messageId;
+  final Uri whatsappUrl;
+  final String status;
+
+  factory WhatsAppReminderResult.fromJson(Map<String, dynamic> json) {
+    return WhatsAppReminderResult(
+      messageId: '${json['messageId'] ?? ''}',
+      whatsappUrl: Uri.parse('${json['whatsappUrl'] ?? ''}'),
+      status: '${json['status'] ?? 'opened_in_whatsapp'}',
+    );
+  }
+}
+
+String? normalizeWhatsAppPhone(String value) {
+  var digits = value.replaceAll(RegExp(r'[^0-9]+'), '');
+  if (digits.isEmpty) return null;
+  while (digits.startsWith('00')) {
+    digits = digits.substring(2);
+  }
+  while (digits.startsWith('0') && digits.length > 8) {
+    digits = digits.substring(1);
+  }
+  if (!digits.startsWith('267') && digits.length >= 7 && digits.length <= 8) {
+    digits = '267$digits';
+  }
+  if (digits.length < 10 || digits.length > 15) return null;
+  return digits;
+}
+
+String whatsAppUrl(String normalizedPhone, String message) {
+  return Uri.https('wa.me', '/$normalizedPhone', {'text': message}).toString();
 }
 
 class _ParsedRange {

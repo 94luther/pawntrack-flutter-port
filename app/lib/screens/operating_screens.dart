@@ -1,9 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/pawntrack_models.dart';
 import '../services/pawntrack_ai_service.dart';
 import '../widgets/stat_card.dart';
+
+typedef WhatsAppReminderSender = Future<Uri> Function(
+    LoanRecord loan, String message, String reminderType);
 
 class NewPawnDraft {
   const NewPawnDraft({
@@ -142,10 +147,12 @@ class HomeCommandCentreScreen extends StatelessWidget {
       {super.key,
       required this.model,
       required this.onOpen,
+      required this.onSendReminder,
       required this.onRunCommand});
 
   final PawnTrackModel model;
   final ValueChanged<int> onOpen;
+  final WhatsAppReminderSender onSendReminder;
   final ValueChanged<String> onRunCommand;
 
   @override
@@ -216,7 +223,7 @@ class HomeCommandCentreScreen extends StatelessWidget {
             _ActionButton(
                 icon: Icons.sms,
                 label: 'Send Reminder',
-                onTap: () => onOpen(5)),
+                onTap: () => _showReminderPanel(context)),
             _ActionButton(
                 icon: Icons.record_voice_over,
                 label: 'Voice Command',
@@ -237,6 +244,34 @@ class HomeCommandCentreScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _showReminderPanel(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.viewInsetsOf(sheetContext).bottom;
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 16),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 860),
+              child: ReminderPanel(
+                  model: model,
+                  onOpenOverdue: () {
+                    Navigator.of(sheetContext).pop();
+                    onOpen(5);
+                  },
+                  onSendReminder: onSendReminder),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -647,12 +682,14 @@ class ActivePawnsOpsScreen extends StatelessWidget {
       required this.model,
       required this.onForfeit,
       required this.onOpenRepayments,
+      required this.onSendReminder,
       required this.onSavePersonalDetails,
       required this.onSaveLoanDetails});
 
   final PawnTrackModel model;
   final Future<void> Function(LoanRecord loan) onForfeit;
   final ValueChanged<LoanRecord> onOpenRepayments;
+  final WhatsAppReminderSender onSendReminder;
   final Future<void> Function(LoanRecord loan, PawnPersonalDetailsDraft draft)
       onSavePersonalDetails;
   final Future<void> Function(LoanRecord loan, LoanDetailsDraft draft)
@@ -694,6 +731,11 @@ class ActivePawnsOpsScreen extends StatelessWidget {
                       loan: loan,
                       onOpenDetails: () => _showPawnDetails(context, loan),
                       onRepay: () => onOpenRepayments(loan),
+                      onSendReminder: () => showWhatsAppReminderDialog(
+                          context: context,
+                          loan: loan,
+                          reminderType: reminderTypeForLoan(loan),
+                          onSendReminder: onSendReminder),
                       onForfeit: () => onForfeit(loan)))
                   .toList()),
         ),
@@ -828,10 +870,12 @@ class OverdueCollectionsScreen extends StatelessWidget {
       {super.key,
       required this.model,
       required this.onOpenRepayments,
+      required this.onSendReminder,
       required this.onForfeit});
 
   final PawnTrackModel model;
   final ValueChanged<LoanRecord> onOpenRepayments;
+  final WhatsAppReminderSender onSendReminder;
   final Future<void> Function(LoanRecord loan) onForfeit;
 
   @override
@@ -867,6 +911,11 @@ class OverdueCollectionsScreen extends StatelessWidget {
                   .map((loan) => _CollectionTile(
                       loan: loan,
                       onRepay: () => onOpenRepayments(loan),
+                      onSendReminder: () => showWhatsAppReminderDialog(
+                          context: context,
+                          loan: loan,
+                          reminderType: 'overdue',
+                          onSendReminder: onSendReminder),
                       onForfeit: () => onForfeit(loan)))
                   .toList()),
         ),
@@ -1377,7 +1426,316 @@ double _cashCollectedToday(PawnTrackModel model) {
 }
 
 String whatsappReminder(LoanRecord loan) {
-  return 'Hi ${loan.client}, this is Last Resort Pawnshop. Your pawn for ${loan.item} is overdue by ${loan.overdueDays} days with ${moneyFormat.format(loan.remaining)} remaining. Please pay or contact us today to avoid forfeiture.';
+  final dueIn = loan.dueDate == null ? null : daysBetween(loan.dueDate!, today);
+  final timing = loan.overdueDays > 0
+      ? 'is overdue by ${loan.overdueDays} days'
+      : dueIn == 0
+          ? 'is due today'
+          : dueIn == 1
+              ? 'is due tomorrow'
+              : 'has ${moneyFormat.format(loan.remaining)} remaining';
+  return 'Hi ${loan.client}, this is Last Resort Pawnshop. Your pawn for ${loan.item} $timing with ${moneyFormat.format(loan.remaining)} remaining. Please pay or contact us today to avoid forfeiture.';
+}
+
+String reminderTypeForLoan(LoanRecord loan) {
+  final dueIn = loan.dueDate == null ? null : daysBetween(loan.dueDate!, today);
+  if (loan.overdueDays > 0) return 'overdue';
+  if (dueIn == 0) return 'due_today';
+  if (dueIn == 1) return 'due_tomorrow';
+  return 'manual';
+}
+
+List<LoanRecord> dueTomorrowLoans(PawnTrackModel model) {
+  return model.loans
+      .where((loan) =>
+          loan.remaining > 0 &&
+          loan.dueDate != null &&
+          daysBetween(loan.dueDate!, today) == 1)
+      .toList();
+}
+
+Future<void> showWhatsAppReminderDialog({
+  required BuildContext context,
+  required LoanRecord loan,
+  required String reminderType,
+  required WhatsAppReminderSender onSendReminder,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => _WhatsAppReminderDialog(
+      loan: loan,
+      reminderType: reminderType,
+      onSendReminder: onSendReminder,
+    ),
+  );
+}
+
+class ReminderPanel extends StatefulWidget {
+  const ReminderPanel(
+      {super.key,
+      required this.model,
+      required this.onOpenOverdue,
+      required this.onSendReminder});
+
+  final PawnTrackModel model;
+  final VoidCallback onOpenOverdue;
+  final WhatsAppReminderSender onSendReminder;
+
+  @override
+  State<ReminderPanel> createState() => _ReminderPanelState();
+}
+
+class _ReminderPanelState extends State<ReminderPanel> {
+  final search = TextEditingController();
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final overdue = [...widget.model.overdue]
+      ..sort((a, b) => b.overdueDays.compareTo(a.overdueDays));
+    final dueToday = widget.model.dueTodayLoans;
+    final dueTomorrow = dueTomorrowLoans(widget.model);
+    final query = search.text.trim().toLowerCase();
+    final openLoans = widget.model.loans
+        .where((loan) => loan.remaining > 0)
+        .where((loan) =>
+            query.isEmpty ||
+            loan.client.toLowerCase().contains(query) ||
+            loan.item.toLowerCase().contains(query) ||
+            loan.phone.toLowerCase().contains(query))
+        .take(20)
+        .toList();
+    return Material(
+      color: Colors.white,
+      elevation: 8,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            const Icon(Icons.sms_outlined),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Text('Send WhatsApp Reminder',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w900))),
+            IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close),
+                tooltip: 'Close')
+          ]),
+          const SizedBox(height: 12),
+          _ReminderSection(
+              title: 'Overdue',
+              loans: overdue.take(8).toList(),
+              empty: 'No overdue loans.',
+              onSendReminder: widget.onSendReminder),
+          _ReminderSection(
+              title: 'Due Today',
+              loans: dueToday,
+              empty: 'No loans due today.',
+              onSendReminder: widget.onSendReminder),
+          _ReminderSection(
+              title: 'Due Tomorrow',
+              loans: dueTomorrow,
+              empty: 'No loans due tomorrow.',
+              onSendReminder: widget.onSendReminder),
+          const SizedBox(height: 8),
+          TextField(
+            controller: search,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                labelText: 'Find any active loan',
+                border: OutlineInputBorder()),
+          ),
+          const SizedBox(height: 10),
+          _ReminderSection(
+              title: 'Manual Reminder',
+              loans: openLoans,
+              empty: 'No matching open loans.',
+              onSendReminder: widget.onSendReminder),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+                onPressed: widget.onOpenOverdue,
+                icon: const Icon(Icons.warning_amber),
+                label: const Text('Open Overdue Collections')),
+          )
+        ]),
+      ),
+    );
+  }
+}
+
+class _ReminderSection extends StatelessWidget {
+  const _ReminderSection(
+      {required this.title,
+      required this.loans,
+      required this.empty,
+      required this.onSendReminder});
+
+  final String title;
+  final List<LoanRecord> loans;
+  final String empty;
+  final WhatsAppReminderSender onSendReminder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+        const SizedBox(height: 6),
+        if (loans.isEmpty)
+          Text(empty, style: const TextStyle(color: Color(0xff64748b)))
+        else
+          ...loans.map((loan) => _ReminderLoanRow(
+              loan: loan,
+              onSend: () => showWhatsAppReminderDialog(
+                  context: context,
+                  loan: loan,
+                  reminderType: reminderTypeForLoan(loan),
+                  onSendReminder: onSendReminder))),
+      ]),
+    );
+  }
+}
+
+class _ReminderLoanRow extends StatelessWidget {
+  const _ReminderLoanRow({required this.loan, required this.onSend});
+
+  final LoanRecord loan;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    final dueText = loan.dueDate == null
+        ? 'No due date'
+        : loan.overdueDays > 0
+            ? '${loan.overdueDays} days overdue'
+            : 'Due ${dateInputValue(loan.dueDate)}';
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      title: Text('${loan.client} - ${moneyFormat.format(loan.remaining)}',
+          style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle:
+          Text('${loan.item} - Phone ${loan.phone.ifEmpty('missing')} - $dueText'),
+      trailing: FilledButton.tonalIcon(
+          onPressed: onSend,
+          icon: const Icon(Icons.sms),
+          label: const Text('Send')),
+    );
+  }
+}
+
+class _WhatsAppReminderDialog extends StatefulWidget {
+  const _WhatsAppReminderDialog(
+      {required this.loan,
+      required this.reminderType,
+      required this.onSendReminder});
+
+  final LoanRecord loan;
+  final String reminderType;
+  final WhatsAppReminderSender onSendReminder;
+
+  @override
+  State<_WhatsAppReminderDialog> createState() =>
+      _WhatsAppReminderDialogState();
+}
+
+class _WhatsAppReminderDialogState extends State<_WhatsAppReminderDialog> {
+  late final TextEditingController message;
+  bool sending = false;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    message = TextEditingController(text: whatsappReminder(widget.loan));
+  }
+
+  @override
+  void dispose() {
+    message.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('WhatsApp Reminder'),
+      content: SizedBox(
+        width: 560,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _InfoRow(label: 'Customer', value: widget.loan.client),
+          _InfoRow(label: 'Phone', value: widget.loan.phone.ifEmpty('Missing')),
+          const SizedBox(height: 12),
+          TextField(
+            controller: message,
+            minLines: 4,
+            maxLines: 6,
+            decoration: const InputDecoration(
+                labelText: 'Reminder message', border: OutlineInputBorder()),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 10),
+            Text(error!, style: const TextStyle(color: Colors.red)),
+          ],
+        ]),
+      ),
+      actions: [
+        TextButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: message.text));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Reminder copied.')));
+              }
+            },
+            icon: const Icon(Icons.copy),
+            label: const Text('Copy')),
+        TextButton(
+            onPressed: sending ? null : () => Navigator.of(context).pop(),
+            child: const Text('Cancel')),
+        FilledButton.icon(
+            onPressed: sending ? null : _send,
+            icon: const Icon(Icons.sms),
+            label: Text(sending ? 'Opening...' : 'Open WhatsApp')),
+      ],
+    );
+  }
+
+  Future<void> _send() async {
+    setState(() {
+      sending = true;
+      error = null;
+    });
+    try {
+      final url = await widget.onSendReminder(
+          widget.loan, message.text.trim(), widget.reminderType);
+      final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (!opened) {
+        await Clipboard.setData(ClipboardData(text: message.text));
+        setState(() => error =
+            'WhatsApp did not open. The reminder was copied so you can paste it manually.');
+        return;
+      }
+      if (mounted) Navigator.of(context).pop();
+    } catch (err) {
+      setState(() => error = '$err'.replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
 }
 
 class _OpsScaffold extends StatelessWidget {
@@ -1871,11 +2229,13 @@ class _LoanActionTile extends StatelessWidget {
       {required this.loan,
       required this.onOpenDetails,
       required this.onRepay,
+      required this.onSendReminder,
       required this.onForfeit});
 
   final LoanRecord loan;
   final VoidCallback onOpenDetails;
   final VoidCallback onRepay;
+  final VoidCallback onSendReminder;
   final VoidCallback onForfeit;
 
   @override
@@ -1903,6 +2263,10 @@ class _LoanActionTile extends StatelessWidget {
               icon: const Icon(Icons.payments),
               tooltip: 'Repay or extend'),
           IconButton.filledTonal(
+              onPressed: onSendReminder,
+              icon: const Icon(Icons.sms_outlined),
+              tooltip: 'Send WhatsApp reminder'),
+          IconButton.filledTonal(
               onPressed: onForfeit,
               icon: const Icon(Icons.inventory_2),
               tooltip: 'Move forfeited item to inventory'),
@@ -1914,10 +2278,14 @@ class _LoanActionTile extends StatelessWidget {
 
 class _CollectionTile extends StatelessWidget {
   const _CollectionTile(
-      {required this.loan, required this.onRepay, required this.onForfeit});
+      {required this.loan,
+      required this.onRepay,
+      required this.onSendReminder,
+      required this.onForfeit});
 
   final LoanRecord loan;
   final VoidCallback onRepay;
+  final VoidCallback onSendReminder;
   final VoidCallback onForfeit;
 
   @override
@@ -1949,6 +2317,10 @@ class _CollectionTile extends StatelessWidget {
                 onPressed: onRepay,
                 icon: const Icon(Icons.payments),
                 label: const Text('Repay / Extend')),
+            FilledButton.tonalIcon(
+                onPressed: onSendReminder,
+                icon: const Icon(Icons.sms),
+                label: const Text('Send WhatsApp')),
             FilledButton.tonalIcon(
                 onPressed: onForfeit,
                 icon: const Icon(Icons.inventory),
