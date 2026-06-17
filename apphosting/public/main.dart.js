@@ -95812,7 +95812,7 @@ I(a){var s,r=this,q=null,p=A.k8(8),o=r.d,n=r.c,m=A.b3(n.e,q,q,q,B.fy,q,q),l=n.w
 if(l.length===0)l="missing"
 s=n.r
 if(s.length===0)s="missing"
-return A.aJ5(A.Po(q,q,!0,q,o,!1,q,q,A.b3(n.f+"\nPhone "+l+" - Storage "+s,q,q,q,q,q,q),m,A.Gl(A.b([A.ON(B.Jl,o,"See and edit full details"),A.ON(B.ky,r.e,"Repay or extend"),A.ON(B.oP,r.f,"Send WhatsApp reminder"),A.ON(B.Jk,r.r,"Move forfeited item to inventory")],t.p),0,6)),q,0,B.oa,new A.cI(p,B.mS))}}
+return A.aJ5(A.Po(q,q,!0,q,o,!1,q,q,A.b3(n.f+"\nPhone "+l+" - Storage "+s,q,q,q,q,q,q),m,A.Gl(A.b([A.ON(B.Jl,o,"See and edit full details"),A.ON(B.oP,r.f,"Send WhatsApp reminder"),A.ON(B.ky,r.e,"Repay or extend"),A.ON(B.Jk,r.r,"Move forfeited item to inventory")],t.p),0,6)),q,0,B.oa,new A.cI(p,B.mS))}}
 A.tn.prototype={
 I(a){var s=this,r=null,q=s.c,p=q.go>=70?B.Ge:B.k,o=A.k8(8),n=t.p
 return A.aJ5(new A.cf(B.ob,A.cT(A.b([A.hD(A.b([A.hT(A.b3(q.e+" - "+$.fA().cZ(q.fx),r,r,r,B.fy,r,r)),A.b3(""+q.fy+" days",r,r,r,B.Xg,r,r)],n),B.a6,B.aC,B.K,0),B.lO,A.b3(A.aQx(q),r,r,r,r,r,r),B.cH,A.Gl(A.b([A.NT(B.ky,B.Zf,s.d),A.NT(B.kz,B.Zg,s.e),A.NT(B.Jq,B.Zh,s.f)],n),0,8)],n),B.aW,B.K),r),p,0,B.oa,new A.cI(o,B.mS))}}

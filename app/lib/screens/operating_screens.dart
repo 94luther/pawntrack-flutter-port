@@ -2260,13 +2260,13 @@ class _LoanActionTile extends StatelessWidget {
               icon: const Icon(Icons.info_outline),
               tooltip: 'See and edit full details'),
           IconButton.filledTonal(
-              onPressed: onRepay,
-              icon: const Icon(Icons.payments),
-              tooltip: 'Repay or extend'),
-          IconButton.filledTonal(
               onPressed: onSendReminder,
               icon: const Icon(Icons.sms_outlined),
               tooltip: 'Send WhatsApp reminder'),
+          IconButton.filledTonal(
+              onPressed: onRepay,
+              icon: const Icon(Icons.payments),
+              tooltip: 'Repay or extend'),
           IconButton.filledTonal(
               onPressed: onForfeit,
               icon: const Icon(Icons.inventory_2),
