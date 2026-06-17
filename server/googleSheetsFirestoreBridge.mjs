@@ -21,6 +21,10 @@ const firebaseAccount = await readServiceAccount(firebaseServiceAccountJson, fir
 const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || config.firebaseProjectId || firebaseAccount.project_id;
 const firestoreDatabaseId = process.env.FIRESTORE_DATABASE_ID || config.firestoreDatabaseId || "(default)";
 const firebaseStorageBucket = process.env.FIREBASE_STORAGE_BUCKET || config.firebaseStorageBucket || `${firebaseProjectId}.firebasestorage.app`;
+const whatsappSendMode = process.env.WHATSAPP_SEND_MODE || config.whatsappSendMode || "link";
+const whatsappPhoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || config.whatsappPhoneNumberId || "";
+const whatsappTemplateName = process.env.WHATSAPP_TEMPLATE_NAME || config.whatsappTemplateName || "";
+const whatsappTemplateLanguage = process.env.WHATSAPP_TEMPLATE_LANGUAGE || config.whatsappTemplateLanguage || "en";
 const app = getApps().length
   ? getApps()[0]
   : initializeApp({
@@ -263,6 +267,24 @@ function stableId(...parts) {
   return parts.filter(Boolean).join("-").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || randomUUID();
 }
 
+function normalizeWhatsAppPhone(value) {
+  let digits = String(value || "").replace(/\D+/g, "");
+  if (!digits) return null;
+  while (digits.startsWith("00")) digits = digits.slice(2);
+  while (digits.startsWith("0") && digits.length > 8) digits = digits.slice(1);
+  if (!digits.startsWith("267") && digits.length >= 7 && digits.length <= 8) {
+    digits = `267${digits}`;
+  }
+  if (digits.length < 10 || digits.length > 15) return null;
+  return digits;
+}
+
+function whatsappLink(normalizedPhone, message) {
+  const url = new URL(`https://wa.me/${normalizedPhone}`);
+  url.searchParams.set("text", message);
+  return url.toString();
+}
+
 function customerIdFromLoan(row, fallback) {
   return stableId(row["Customer ID Number / Omang"] || row.Omang || row["Client Number"] || row["Phone Number"] || row["Client Name"], fallback);
 }
@@ -469,6 +491,55 @@ async function recordInventorySale(item) {
   }), { merge: true });
 }
 
+async function recordWhatsappReminder(payload) {
+  const message = String(payload.message || "").trim();
+  if (!message) throw new Error("Enter a reminder message before opening WhatsApp.");
+  const normalizedPhone = normalizeWhatsAppPhone(payload.phone);
+  if (!normalizedPhone) throw new Error(`No usable WhatsApp phone number for ${payload.customerName || "this customer"}.`);
+  const whatsappUrl = whatsappLink(normalizedPhone, message);
+  const status = "opened_in_whatsapp";
+  const provider = whatsappSendMode === "cloud_api" ? "whatsapp_cloud_api_pending" : "wa_me_link";
+  const ref = db.collection("whatsappMessages").doc();
+  await ref.set(cleanForFirestore({
+    loanId: payload.loanId || null,
+    sheetName: payload.sheetName || null,
+    rowNumber: payload.rowNumber || null,
+    customerName: payload.customerName || null,
+    itemPawned: payload.itemPawned || null,
+    phone: payload.phone || null,
+    normalizedPhone,
+    message,
+    reminderType: payload.reminderType || "manual",
+    actor: payload.actor || {},
+    status,
+    provider,
+    sendMode: whatsappSendMode,
+    whatsappUrl,
+    futureCloudApiConfig: {
+      phoneNumberIdConfigured: Boolean(whatsappPhoneNumberId),
+      templateName: whatsappTemplateName || null,
+      templateLanguage: whatsappTemplateLanguage
+    },
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  }));
+  await db.collection("auditLog").add(cleanForFirestore({
+    entityType: "whatsapp_message",
+    entityId: ref.id,
+    action: "whatsapp_reminder_opened",
+    actor: payload.actor || {},
+    afterPayload: {
+      loanId: payload.loanId || null,
+      customerName: payload.customerName || null,
+      reminderType: payload.reminderType || "manual",
+      status,
+      provider
+    },
+    createdAt: FieldValue.serverTimestamp()
+  }));
+  return { messageId: ref.id, whatsappUrl, status };
+}
+
 async function parseMultipartUpload(req) {
   return new Promise((resolve, reject) => {
     const busboy = Busboy({ headers: req.headers });
@@ -562,6 +633,10 @@ export async function handleApiRequest(req, res) {
       await recordInventorySale(payload.item || {});
       return sendJson(res, 200, { ok: true, result: await firestoreFirstBatchUpdate(payload.updates || [], { type: "inventory_sale", item: payload.item }), sale: payload.item });
     }
+    if (url.pathname === "/api/whatsapp-reminder" && req.method === "POST") {
+      const payload = await readBody(req);
+      return sendJson(res, 200, { ok: true, ...await recordWhatsappReminder(payload) });
+    }
     if (url.pathname.startsWith("/api/upload/") && req.method === "POST") {
       const kind = url.pathname.split("/").pop();
       return sendJson(res, 200, { ok: true, upload: await handleUpload(req, kind) });
@@ -594,5 +669,6 @@ export const runtimeConfig = {
   firebaseProjectId,
   firestoreDatabaseId,
   firebaseStorageBucket,
-  googleSheets: Boolean(googleSheetId && (googleServiceAccountFile || googleServiceAccountJson))
+  googleSheets: Boolean(googleSheetId && (googleServiceAccountFile || googleServiceAccountJson)),
+  whatsappSendMode
 };

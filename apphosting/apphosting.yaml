@@ -21,6 +21,10 @@ env:
     value: 1Ga4hP0Cbp51lGHcm60wNXl3ec5oUlkB_RJ-GNZKfE2o
     availability:
       - RUNTIME
+  - variable: WHATSAPP_SEND_MODE
+    value: link
+    availability:
+      - RUNTIME
   - variable: GOOGLE_SERVICE_ACCOUNT_JSON
     secret: pawntrack-service-account-json
     availability:

@@ -1712,6 +1712,12 @@ limitations under the License.
 --------------------------------------------------------------------------------
 cross_file
 flutter_plugin_android_lifecycle
+url_launcher_android
+url_launcher_ios
+url_launcher_linux
+url_launcher_macos
+url_launcher_web
+url_launcher_windows
 
 Copyright 2013 The Flutter Authors
 
@@ -5648,6 +5654,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --------------------------------------------------------------------------------
 flutter_lints
 plugin_platform_interface
+url_launcher
+url_launcher_platform_interface
 
 Copyright 2013 The Flutter Authors. All rights reserved.
 

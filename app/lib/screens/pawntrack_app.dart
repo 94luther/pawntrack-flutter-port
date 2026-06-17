@@ -585,6 +585,22 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
     await refresh();
   }
 
+  Future<Uri> sendWhatsAppReminder(
+      LoanRecord loan, String message, String reminderType) async {
+    if (message.trim().isEmpty) {
+      throw Exception('Enter a reminder message before opening WhatsApp.');
+    }
+    final result = await api.createWhatsAppReminder(
+      loan: loan,
+      message: message.trim(),
+      reminderType: reminderType,
+      actor: actorInfo,
+    );
+    setState(
+        () => writeStatus = 'Opened WhatsApp reminder for ${loan.client}.');
+    return result.whatsappUrl;
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -597,6 +613,7 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
                 HomeCommandCentreScreen(
                     model: loaded,
                     onOpen: (index) => setState(() => selectedIndex = index),
+                    onSendReminder: sendWhatsAppReminder,
                     onRunCommand: (_) {}),
                 NewPawnScreen(
                     model: loaded,
@@ -613,6 +630,7 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
                           selectedLoanId = loan.id;
                           selectedIndex = 4;
                         }),
+                    onSendReminder: sendWhatsAppReminder,
                     onSavePersonalDetails: savePawnPersonalDetails,
                     onSaveLoanDetails: saveCurrentLoanDetails),
                 RepaymentsScreen(
@@ -627,6 +645,7 @@ class _PawnTrackAppState extends State<PawnTrackApp> {
                           selectedLoanId = loan.id;
                           selectedIndex = 4;
                         }),
+                    onSendReminder: sendWhatsAppReminder,
                     onForfeit: forfeitLoanToInventory),
                 BorrowerRiskScreen(model: loaded),
                 InventoryOpsScreen(model: loaded),

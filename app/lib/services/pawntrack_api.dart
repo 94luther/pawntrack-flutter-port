@@ -209,7 +209,10 @@ class PawnTrackApi {
     String? itemId,
   }) async {
     final upload = await _upload(kind,
-        bytes: bytes, fileName: fileName, customerId: customerId, itemId: itemId);
+        bytes: bytes,
+        fileName: fileName,
+        customerId: customerId,
+        itemId: itemId);
     if (upload != null) return upload;
 
     final fileId = firestore.collection('_ids').doc().id;
@@ -259,7 +262,8 @@ class PawnTrackApi {
     return result;
   }
 
-  Uri _apiUri(String path) => _apiBase.resolve('./${path.replaceFirst('/', '')}');
+  Uri _apiUri(String path) =>
+      _apiBase.resolve('./${path.replaceFirst('/', '')}');
 
   Future<Map<String, dynamic>?> _get(String path) async {
     try {
@@ -296,8 +300,8 @@ class PawnTrackApi {
       final request = http.MultipartRequest('POST', _apiUri('/upload/$kind'));
       if (customerId != null) request.fields['customerId'] = customerId;
       if (itemId != null) request.fields['itemId'] = itemId;
-      request.files.add(http.MultipartFile.fromBytes('file', bytes,
-          filename: fileName));
+      request.files
+          .add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
       if (response.statusCode >= 200 && response.statusCode < 300) {

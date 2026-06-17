@@ -1516,7 +1516,8 @@ class _ReminderPanelState extends State<ReminderPanel> {
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             const Icon(Icons.sms_outlined),
             const SizedBox(width: 10),
@@ -1627,8 +1628,8 @@ class _ReminderLoanRow extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Text('${loan.client} - ${moneyFormat.format(loan.remaining)}',
           style: const TextStyle(fontWeight: FontWeight.w800)),
-      subtitle:
-          Text('${loan.item} - Phone ${loan.phone.ifEmpty('missing')} - $dueText'),
+      subtitle: Text(
+          '${loan.item} - Phone ${loan.phone.ifEmpty('missing')} - $dueText'),
       trailing: FilledButton.tonalIcon(
           onPressed: onSend,
           icon: const Icon(Icons.sms),
